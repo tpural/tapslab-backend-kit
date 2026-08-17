@@ -1,0 +1,41 @@
+name: Publish Package
+
+# Publishes to GitHub Packages when a v* tag is pushed.
+#
+# No PAT involved: GITHUB_TOKEN can publish packages belonging to its own
+# repository, which is why `permissions: packages: write` is all that is needed.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: '@tpural'
+
+      # Fail early and loudly if the tag and package.json disagree, rather than
+      # publishing a version nobody expects.
+      - name: Check the tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "publishing $pkg"
+
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
