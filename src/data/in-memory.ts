@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { AppError } from "../http/envelope";
 import type {
   CreateInput,
   Entity,
@@ -20,14 +21,22 @@ import type {
  */
 export class InMemoryRepository<T extends Entity> implements Repository<T> {
   private readonly store: Map<string, T>;
+  private readonly maxItems: number;
 
-  constructor(namespace: string, seed: T[] = []) {
+  /**
+   * `maxItems` bounds the store because this one lives in process memory: an
+   * unauthenticated create loop against a deployed instance would otherwise
+   * grow it until the pod is OOM-killed. A real database would push this to a
+   * quota or a rate limit rather than the repository.
+   */
+  constructor(namespace: string, seed: T[] = [], { maxItems = 1000 } = {}) {
     const key = `__tapslab_repo_${namespace}`;
     const globals = globalThis as Record<string, unknown>;
     if (!globals[key]) {
       globals[key] = new Map(seed.map((item) => [item.id, structuredClone(item)]));
     }
     this.store = globals[key] as Map<string, T>;
+    this.maxItems = maxItems;
   }
 
   async list(options: ListOptions<T> = {}): Promise<Page<T>> {
@@ -52,6 +61,10 @@ export class InMemoryRepository<T extends Entity> implements Repository<T> {
   }
 
   async create(input: CreateInput<T>): Promise<T> {
+    if (this.store.size >= this.maxItems) {
+      throw new AppError("conflict", `This store holds at most ${this.maxItems} items`);
+    }
+
     const now = new Date().toISOString();
     const entity = {
       ...structuredClone(input),

@@ -99,4 +99,24 @@ describe("InMemoryRepository", () => {
     const sorted = await repo.list({ sortBy: "title", order: "asc" });
     expect(sorted.items.map((i) => i.title)).toEqual(["A", "B", "C"]);
   });
+
+  it("refuses to grow past maxItems", async () => {
+    const capped = new InMemoryRepository<Item>(`test-${namespace++}`, [], { maxItems: 2 });
+    await capped.create({ title: "one", done: false });
+    await capped.create({ title: "two", done: false });
+
+    await expect(capped.create({ title: "three", done: false })).rejects.toMatchObject({
+      code: "conflict",
+    });
+    expect((await capped.list()).total).toBe(2);
+  });
+
+  it("counts the seed against the cap", async () => {
+    const seed = [
+      { id: "a", title: "seeded", done: false, createdAt: "", updatedAt: "" },
+    ] as Item[];
+    const capped = new InMemoryRepository<Item>(`test-${namespace++}`, seed, { maxItems: 1 });
+
+    await expect(capped.create({ title: "nope", done: false })).rejects.toThrow();
+  });
 });
