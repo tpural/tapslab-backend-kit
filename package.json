@@ -1,6 +1,6 @@
 {
   "name": "@tpural/backend-kit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Server-side helpers shared by tapslab projects",
   "license": "MIT",
   "repository": {
