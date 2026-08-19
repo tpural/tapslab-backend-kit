@@ -108,3 +108,29 @@ describe("withJobAuth", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("framework signals", () => {
+  it("re-throws Next's redirect instead of turning it into a 500", async () => {
+    const redirect = Object.assign(new Error("NEXT_REDIRECT"), {
+      digest: "NEXT_REDIRECT;replace;/login;307;",
+    });
+    const route = handler(async () => {
+      throw redirect;
+    });
+
+    await expect(route()).rejects.toBe(redirect);
+  });
+
+  it("still handles a plain error as a 500", async () => {
+    const route = handler(async () => {
+      throw new Error("boom");
+    });
+
+    const response = await route();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: { code: "internal", message: "Something went wrong" },
+    });
+  });
+});

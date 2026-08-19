@@ -28,10 +28,27 @@ export function err(
 }
 
 /**
+ * Next signals `redirect()` and `notFound()` by throwing, and expects the
+ * framework -- not application code -- to catch them. Swallowing one turns a
+ * working redirect into a logged 500, so they are re-thrown before anything
+ * else looks at the error.
+ *
+ * Matched on the digest rather than by importing Next: this package has no
+ * framework dependency and should not gain one for three lines.
+ */
+function isFrameworkSignal(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const digest = (error as { digest?: unknown }).digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_");
+}
+
+/**
  * An unexpected error logs its real cause but returns a generic message:
  * echoing `error.message` is how stack traces and SQL reach a browser.
  */
 export function toErrorResponse(error: unknown): Response {
+  if (isFrameworkSignal(error)) throw error;
+
   if (error instanceof AppError) {
     // Expected and handled, so info rather than error keeps real failures visible.
     logger.info("request rejected", { code: error.code, message: error.message });

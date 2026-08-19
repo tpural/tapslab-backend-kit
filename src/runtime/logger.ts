@@ -13,11 +13,14 @@ function threshold(): number {
  */
 function emit(level: Level, msg: string, fields?: Record<string, unknown>) {
   if (LEVELS[level] < threshold()) return;
+  // Fields are spread first so a caller cannot rename the level of its own
+  // message: the collector indexes on these three, and an error filed as a
+  // debug line is an error nobody sees.
   const line = JSON.stringify({
+    ...fields,
     time: new Date().toISOString(),
     level,
     msg,
-    ...fields,
   });
   if (level === "error" || level === "warn") console.error(line);
   else console.log(line);

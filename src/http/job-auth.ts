@@ -34,7 +34,12 @@ export function withJobAuth<Args extends unknown[]>(
   };
 }
 
-/** Constant-time: `===` on a secret leaks its length and prefix through timing. */
+/**
+ * Constant-time over the shared length, which is what stops `===` leaking the
+ * secret's prefix a character at a time. Length itself still leaks, exactly as
+ * it does in node's own `crypto.timingSafeEqual`, which rejects mismatched
+ * lengths outright.
+ */
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

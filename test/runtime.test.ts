@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createHealthHandler } from "../src/runtime/health";
 import { env, loadConfig } from "../src/runtime/config";
+import { logger } from "../src/runtime/logger";
 
 describe("createHealthHandler", () => {
   it("reports ok and the version with no checks", async () => {
@@ -93,5 +94,22 @@ describe("loadConfig", () => {
     expect(() =>
       loadConfig({ STAGE: env.enum(["dev", "prod"] as const) }, { STAGE: "staging" }),
     ).toThrow(/must be one of dev, prod/);
+  });
+});
+
+describe("logger field precedence", () => {
+  it("does not let a caller field rename the level", () => {
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((line: unknown) => {
+      lines.push(String(line));
+    });
+
+    logger.error("real failure", { level: "debug", msg: "not this", detail: "kept" });
+    spy.mockRestore();
+
+    const parsed = JSON.parse(lines[0]);
+    expect(parsed.level).toBe("error");
+    expect(parsed.msg).toBe("real failure");
+    expect(parsed.detail).toBe("kept");
   });
 });
